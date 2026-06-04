@@ -1,0 +1,11 @@
+# 개인 도메인/키 정보가 들어있어 공유 금지
+terraform.tfvars
+
+# Terraform 상태 파일 (AWS 리소스 ID 포함)
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Terraform 내부 폴더
+.terraform/
+.terraform.lock.hcl

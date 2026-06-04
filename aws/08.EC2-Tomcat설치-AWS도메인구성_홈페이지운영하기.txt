@@ -1,0 +1,235 @@
+## 5. Tomcat 설치  (tomcat2a, tomcat2c 모두 진행)
+
+**config 설정 마쳤으므로 아래 명령어로 WAS EC2로 접속** (이미 위에서 접속) 
+- 참고로 xshell 접속 확인
+ > BASTION-server 부터
+   >> 여기에서 Tomcat2A 접속
+      ssh -i kwuaws.pem ubuntu@10.250.2.240
+      또는 $ ssh -i ~/.ssh/kwuaws.pem ubuntu@10.250.2.240
+   >> 여기에서 Tomcat2C 접속
+      ssh -i kwuaws.pem ubuntu@10.250.12.240
+      또는 $ ssh -i ~/.ssh/kwuaws.pem ubuntu@10.250.12.240
+
+- JDK, Tomcat 설치 가능한 버전 확인
+apt search openjdk 명령어로 name이 포함된 설치 가능한 패키지 목록을 조회한다.
+
+ sudo -i
+
+#1번작업**
+[root@ip-10-250-2-240]$ apt search openjdk
+
+[root@ip-10-250-2-240]$ sudo apt -y update
+ > 자바11 설치
+ > 아래 명령어를 입력하면 의존관계를 조회하고, 계속 설치를 진행할 것인지 묻는다.
+ > y를 입력하면 의존관계를 다운로드하고 설치를 진행한다.
+
+
+#2번작업**
+[root@ip-10-250-2-240]$ sudo apt install openjdk-11-jdk -y
+ > 설치진행 
+ > 자바 버전 확인 <-- 밑에서 
+
+
+
+#3번작업** 
+ > java -version 명령어로 설치된 자바 버전을 확인한다.
+
+[root@ip-10-250-2-240]$ java -version
+
+openjdk version "11.0.28" 2025-07-15
+OpenJDK Runtime Environment (build 11.0.28+6-post-Ubuntu-1ubuntu122.04.1)
+OpenJDK 64-Bit Server VM (build 11.0.28+6-post-Ubuntu-1ubuntu122.04.1, mixed mode, sharing)
+
+javac -version 명령어로 설치된 자바 버전을 확인한다.
+
+
+
+
+#4번작업**
+
+[root@ip-10-250-2-240]$ javac -version
+javac 11.0.28
+
+
+
+환경변수 설정 (아래 #5번작업 ~ #10번작업까지 : 실행 안해줘도 된다)**
+$JAVA_HOME 확인
+$JAVA_HOME을 입력하여 환경변수를 확인한다.
+
+[root@ip-10-250-2-240]$ echo $JAVA_HOME
+ > 아직 나오는게 없다. 
+
+
+#5번작업**
+설치 경로 확인
+which 와 readlink 명령어를 통해 java와 javac가 설치된 경로를 확인한다.
+
+아래명령어 실행
+[root@ip-10-250-2-240]$ which java
+[ec2-user ~]$ readlink -f /usr/bin/java
+
+#6번작업**
+아래명령어 실행
+[root@ip-10-250-2-240]$ `which javac`
+[root@ip-10-250-2-240]$ `readlink -f /usr/bin/javac`
+
+환경변수 추가
+export 명령어로 바로 환경변수에 추가할 수 있지만, 1회성으로 시스템 재시작 시 초기화된다.
+
+**#7번작업**
+[root@ip-10-250-2-240]$ `export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64`
+[root@ip-10-250-2-240]$ `export PATH=$PATH:$JAVA_HOME/bin`
+[root@ip-10-250-2-240]$ `export CLASSPATH=$JAVA_HOME/lib/tools.jar`
+
+echo 명령어로 등록한 환경변수 경로를 확인한다.
+
+**#8번작업**
+[root@ip-10-250-2-240]$ `echo $JAVA_HOME`
+/usr/lib/jvm/java-2-openjdk-amd64
+
+**#9번작업**
+[root@ip-10-250-2-240]$ `echo $PATH`
+/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/usr/lib/jvm/java-11-openjdk-amd64/bin
+
+**#10번작업**
+[root@ip-10-250-2-240]$ `echo $CLASSPATH`
+/usr/lib/jvm/java-2-openjdk-amd64/lib/tools.jar
+
+10번까지 스킵. 
+
+
+#11번 작업**
+[root@ip-10-250-2-240] $ sudo vim + /etc/profile
+
+export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+export PATH=$PATH:$JAVA_HOME/bin
+export CLASSPATH=$JAVA_HOME/lib/tools.jar
+
+따라서 아래처럼 작업결과
+
+# /etc/profile: system-wide .profile file for the Bourne shell (sh(1))
+# and Bourne compatible shells (bash(1), ksh(1), ash(1), ...).
+
+if [ "${PS1-}" ]; then
+  if [ "${BASH-}" ] && [ "$BASH" != "/bin/sh" ]; then
+    # The file bash.bashrc already sets the default PS1.
+    # PS1='\h:\w\$ '
+    if [ -f /etc/bash.bashrc ]; then
+      . /etc/bash.bashrc
+    fi
+  else
+    if [ "$(id -u)" -eq 0 ]; then
+      PS1='# '
+    else
+      PS1='$ '
+    fi
+  fi
+fi
+
+if [ -d /etc/profile.d ]; then
+  for i in /etc/profile.d/*.sh; do
+    if [ -r $i ]; then
+      . $i
+    fi
+  done
+  unset i
+fi
+
+export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+export PATH=$PATH:$JAVA_HOME/bin
+export CLASSPATH=$JAVA_HOME/lib/tools.jar
+
+
+아래경로를 참고하여
+/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.432.b06-1.amzn2.0.1.x86_64
+
+
+====================================================================================================
+(AWS) Ubuntu 22.04 버전에 Tomcat 9 설치하기**
+#12번 작업**
+[root@ip-10-250-2-240]$ apt list | grep tomcat
+
+설치가능한 tomcat 패키지 목록
+톰캣 웹사이트에서 9.0 버전 다운로드 주소 확인
+톰캣 웹사이트에 가서 9.0 버전 파일의 주소를 확인하고 다운로드한다.
+
+#13번 작업 (생략가능)**
+아파치 톰캣 웹사이트 주소: https://tomcat.apache.org/download-90.cgi    — 이미 해당 버전 다운로드 링크을 아래와 같이  표기 하였으므로 실행할 필요없다.
+
+#14번 작업**
+[주의 root에 작업한다]
+root@ip-10-250-2-240]# wget https://archive.apache.org/dist/tomcat/tomcat-9/v9.0.108/bin/apache-tomcat-9.0.108.tar.gz
+
+다운로드되면 아래처럼...
+--2025-11-09 02:50:46--  https://archive.apache.org/dist/tomcat/tomcat-9/v9.0.108/bin/apache-tomcat-9.0.108.tar.gz
+Resolving archive.apache.org (archive.apache.org)... 65.108.204.189, 2a01:4f9:1a:a084::2
+Connecting to archive.apache.org (archive.apache.org)|65.108.204.189|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 13028093 (12M) [application/x-gzip]
+Saving to: ‘apache-tomcat-9.0.108.tar.gz’
+
+apache-tomcat-9.0.108.tar.gz        100%[==================================================================>]  12.42M  3.88MB/s    in 3.2s    
+2025-11-09 02:50:51 (3.88 MB/s) - ‘apache-tomcat-9.0.108.tar.gz’ saved [13028093/13028093]
+
+
+
+#15번 작업**
+[root@ip-10-250-2-240]# ls
+apache-tomcat-9.0.102.tar.gz
+
+#16번 작업**
+
+[root@ip-10-250-2-240]# sudo groupadd tomcat
+
+[root@ip-10-250-2-240]# sudo mkdir /home/tomcat
+
+[root@ip-10-250-2-240]# sudo tar -xf apache-tomcat-9.0.108.tar.gz -C /home/tomcat/
+[root@ip-10-250-2-240]# sudo useradd -s /usr/sbin/nologin -g tomcat -d /home/tomcat tomcat
+root@ip-10-250-2-240:/# ls /home/tomcat/apache-tomcat-9.0.108/
+
+
+[root@ip-10-250-2-240]# sudo vi /etc/systemd/system/tomcat.service
+
+ > 아래 내용 붙여넣기 
+
+[Unit]
+Description=Apache Tomcat 9.0 Web Application Container
+After=network.target
+
+[Service]
+Type=forking
+Environment=JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+Environment=CATALINA_PID=/home/tomcat/apache-tomcat-9.0.108/temp/tomcat.pid
+Environment=CATALINA_HOME=/home/tomcat/apache-tomcat-9.0.108
+Environment=CATALINA_BASE=/home/tomcat/apache-tomcat-9.0.108
+Environment='CATALINA_OPTS=-Xms512M -Xmx1024M -server -XX:+UseParallelGC'
+Environment='JAVA_OPTS=-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom'
+ExecStart=/home/tomcat/apache-tomcat-9.0.108/bin/startup.sh
+ExecStop=/home/tomcat/apache-tomcat-9.0.108/bin/shutdown.sh
+User=tomcat
+Group=tomcat
+UMask=0007
+RestartSec=10
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
+
+
+**#17번 작업**
+
+[root@ip-10-250-2-240]# sudo systemctl daemon-reload
+[root@ip-10-250-2-240]# sudo systemctl enable tomcat.service
+
+[root@ip-10-250-2-240]# sudo chgrp -R tomcat /home/tomcat/
+[root@ip-10-250-2-240]# sudo chown -R tomcat /home/tomcat/
+
+[root@ip-10-250-2-240]# sudo chmod +x /home/tomcat/apache-tomcat-9.0.108/bin/*.sh
+[root@ip-10-250-2-240]# sudo systemctl start tomcat
+[root@ip-10-250-2-240]# ps -ef|grep tomcat
+[root@ip-10-250-2-240] # systemctl enable tomcat.service
+
+**성공적으로 Ubuntu 22.04 버전에 Tomcat 설치가 완료되면 아래와 같이 `curl` 명령어를 통해 테스트 가능** 
+ > curl localhost:8080
+====================================================================================================

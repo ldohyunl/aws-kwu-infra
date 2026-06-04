@@ -1,0 +1,242 @@
+-------------------------------------------------------------------------------------------------------------
+[EC2 생성, 키 페어 생성]
+
+-------------------------------------------------------------------------------------------------------------
+
+6. 키페어 생성
+[EC2] - [키 페어] - [키 페어 생성] 클릭
+ 키 페어 이름은 ‘kwuaws’로 입력
+ 키 페어 유형은 ‘RSA’로 지정
+ 프라이빗 키 파일 형식은 ‘.pem’으로 지정
+
+[키 페어 생성] 클릭 시 자동으로 다운로드에 키파일이 다운로드 됨 → 해당 파일 잘 보관하기!
+
+-------------------------------------------------------------------------------------------------------------
+7. BASTION Server 설치 준비
+7-1) 서브넷 생성, Routing Table 수정
+[VPC] - [서브넷] - [서브넷 생성] 클릭
+ > 외부사용자, 외주업체들이 BASTION (허브서버) 거쳐서 들어올 수 있도록. 
+ > VPC ID는 생성한 ‘KWU-PRD-VPC’로 연결
+ > 서브넷 이름은 ‘KWU-PRD-VPC-BASTION-PUB-2A’로 입력
+ > 가용영역은 ‘아시아 태평양(서울) / ap-northeast-2a’로 지정 (하나만 만든다. )
+ > IPv4 서브넷 CIDR 블록은 ‘10.250.4.0/24’로 입력 후 [서브넷 생성] 클릭
+ 
+ >> 추후 DB를 10.250.3.0/24 으로 줄꺼다. 
+
+**해당 서브넷이 인터넷과 연결 가능하도록 기존 라우팅 테이블 수정 필요**
+ > [VPC] - [라우팅 테이블] - [KWU-PRD-VPC-RT-PUB] 클릭 후
+ > [서브넷 연결] - [서브넷 연결 편집] 클릭
+ > 생성한 서브넷 중 아래 서브넷을 선택 후 [연결 저장] 클릭 후 연결된 결과 확인 (모든 PUB 서브넷이 선택될 수 있도록)
+ >> KWU-PRD-VPC-BASTION-PUB-2A
+
+-------------------------------------------------------------------------------------------------------------
+7-2) BASTION Server 보안그룹, EC2 생성
+
+- BASTION 보안그룹 만들기
+[VPC] - [보안 그룹] - [보안 그룹 생성] 클릭 (EC2와 VPC의 '보안그룹'은 똑같은거다)
+ > 보안 그룹 이름과 설명은 ‘KWU-PRD-VPC-BASTION-PUB-SG-2A’로 입력하며
+ > VPC는 이전에 생성한 ‘KWU-PRD-VPC’로 지정
+ > 인바운드와 아웃바운드 규칙은 생성 이후 지정할 것이므로 [보안 그룹 생성] 클릭
+ > 만들어진 보안그룹 선택하고, '인바운드 규칙 편집'
+   > 모든ICMP-IPv4, SSH, 소스 Anywhere-IPv4
+ 
+
+- 다른 PUB SG 미리 만들어 놓기 
+[보안 그룹 만들기] 
+* BASTION Server 의 보안그룹이 NGINX-PUB-2A 의 보안그룹 과 같다. 
+* 밑에서 'EC2 생성 (Nginx Web server)내용' 에서 'NGINX-PUB'에 대한 보안그룹을 만드는 내용이 다시 나온다. 
+* 보안그룹 개수는 서브넷 개수와 일치한다. (보안 때문에..) 
+  1) AZ : 2A
+   > 보안그룹 : KWU-PRD-VPC-NGINX-PUB-SG-2A   (22,80,443,모든ICMP-IPv4)       
+   > 서브넷 : KWU-PRD-VPC-NGINX-PUB-2A      (10.250.1.0/24) - 251       
+  2) AZ : 2C
+   > 보안그룹 : KWU-PRD-VPC-NGINX-PUB-SG-2C   (22,80,443,모든ICMP-IPv4) 
+   > 서브넷 :  KWU-PRD-VPC-NGINX-PUB-2C      (10.250.11.0/24) - 251   
+	 
+- BASTION EC2 생성
+[EC2] - [인스턴스] - [인스턴스 시작] 클릭
+ > 이름은 ‘KWU-PRD-VPC-BASTION-PUB-2A’로 입력
+ > AMI는 `Ubuntu Server 22.04 LTS(HVM), SSD Volume Type`으로 지정
+ > 인스턴스 유형은 기본 Default인 t3.micro 사용
+ > 키 페어에서 이전에 생성한 키로 지정
+ 
+ 
+ [네트워크 설정]에서
+ > [VPC]는 이전에 생성한 ‘ KWU-PRD-VPC ’로 지정
+ > [서브넷]은 ‘ KWU-PRD-VPC-BASTION-PUB-2A ’로 지정
+ > [퍼블릭 IP 자동 할당]은 **활성화**로 변경
+ > [방화벽(보안 그룹)]은 기존 보안 그룹 선택으로 변경하고 일반 보안 그룹을
+    ‘ KWU-PRD-VPC-BASTION-PUB-SG-2A ’로 지정
+
+ [고급 네트워크 구성] 클릭
+ > [기본 IP]를 ‘10.250.4.240’으로 입력 후 [인스턴스 시작] 클릭
+   >> '기본IP'에 미리값이 들어가 있더라도... 
+ > 생성되면 해당 퍼블릭 IPv4 주소 복사
+
+
+
+-------------------------------------------------------------------------------------------------------------
+
+
+7-3) SSH 클라이언트로 서버접속 
+ > Xshell-8.0.0087p.exe , Xftp-8.0.0086p.exe 설치 사용
+   > 설치 완료 후, 시작 시 이메일로 인증 받아야 무료로 사용할 수 있음. 
+ 
+* 연결
+ 이름 : BASTION-server
+ 호스트 : 퍼블릭 IPv4 주소
+ 포트번호 : 22
+
+* 사용자 인증
+ 사용자 이름 : ubuntu
+ 방법 : Public key
+ 키파일 : (생성한 키페어)  <-- 설정 - 키파일 가져오기 - ...pem 파일 
+ 
+연결된 것을 확인    
+ > consolas, bold, 9 
+ 
+ubuntu@ip-10-250-4-240:~$ ifconfig
+Command 'ifconfig' not found, but can be installed with:
+sudo apt install net-tools
+ubuntu@ip-10-250-4-240:~$ sudo apt -y update && sudo apt -y install net-tools
+
+ubuntu@ip-10-250-4-240:~$ ifconfig | head -5
+ens5: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 9001
+        inet 10.250.4.240  netmask 255.255.255.0  broadcast 10.250.4.255
+        inet6 fe80::87:8aff:fef8:8247  prefixlen 64  scopeid 0x20<link>
+        ether 02:87:8a:f8:82:47  txqueuelen 1000  (Ethernet)
+        RX packets 30705  bytes 44500647 (44.5 MB)
+ubuntu@ip-10-250-4-240:~$ 
+
+
+-------------------------------------------------------------------------------------------------------------
+
+8. EC2 & EC2 간 통신 방법
+1) BASTION 서버(10.250.4.240)를 통해 nginx2a, nginx2c, tomcat2a. tomcat2c 연결
+- SFTP로 생성한 pem를 이동시키기
+ > 펨키를 사용하여 원격접속을 할 수 있음   
+   chmod 400 (자신의 펨키 이름)
+   ssh -i (자신의 펨키 이름) ubuntu@10.250.1.240
+ 
+2) 사용에 편의성 config 설정을  구성해보자!!!
+ vi ~/.ssh/config
+
+파일 새로 생성 후 아래 내용 붙여넣기  
+
+Host nginx2a
+    HostName 10.250.1.240
+    User ubuntu
+    IdentityFile ~/.ssh/kwuaws.pem
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+
+Host nginx2c
+    HostName 10.250.11.240
+    User ubuntu
+    IdentityFile ~/.ssh/kwuaws.pem
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+
+Host tomcat2a
+    HostName 10.250.2.240
+    User ubuntu
+    IdentityFile ~/.ssh/kwuaws.pem
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+
+Host tomcat2c
+    HostName 10.250.12.240
+    User ubuntu
+    IdentityFile ~/.ssh/kwuaws.pem
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+	
+$ sudo systemctl restart ssh
+
+자신의 펨키를 안전하게 .ssh/ 디렉터리로 이동 
+  mv kwuaws.pem ~/.ssh/
+  ls ~/.ssh
+
+config 설정 마쳤으므로 아래 명령어로 WEB EC2 / WAS EC2 4대로 접속을 해보자
+  ssh nginx2a
+  ssh nginx2c
+
+  ssh tomcat2a
+  ssh tomcat2c
+  
+  
+-------------------------------------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------------------------------------
+9. <EC2 2대 생성 (Nginx Web server)>
+
+9-1. 보안그룹 생성
+[VPC] - [보안 그룹] - [보안 그룹 생성] 클릭
+
+[보안 그룹 만들기] 
+ --> <EC2 생성 (Nginx Web server)> 여기 내용에서 'NGINX-PUB'에 대한 보안그룹을 만든다. 
+ > 보안그룹 개수는 서브넷 개수와 일치한다. (보안 때문에..) 
+ > 보안 그룹 이름과 설명은 ‘KWU-PRD-VPC-NGINX-PUB-SG-2A’로 입력하며
+ > VPC는 이전에 생성한 ‘KWU-PRD-VPC’로 지정
+ > 인바운드와 아웃바운드 규칙은 생성 이후 지정할 것이므로 [보안 그룹 생성] 클릭
+ > 인바운드 규칙 설정을 위해 [인바운드 규칙] - [인바운드 규칙 편집] 클릭
+ > [규칙 추가] 클릭 후 아래 표를 참고하여 인바운드 규칙 설정 후 [규칙 저장] 클릭
+ 
+    1) AZ : 2A
+     KWU-PRD-VPC-NGINX-PUB-2A      (10.250.1.0/24) - 251      KWU-PRD-VPC-NGINX-PUB-SG-2A   (22,80,443)          
+    2) AZ : 2C
+     KWU-PRD-VPC-NGINX-PUB-2C      (10.250.11.0/24) - 251     KWU-PRD-VPC-NGINX-PUB-SG-2C   (22,80,443)
+
+ > KWU-PRD-VPC-NGINX-PUB-SG-2C 보안그룹도 위와 같이 동일하게 생성
+ > [VPC] - [보안 그룹] - [보안 그룹 생성] 클릭
+ > 보안 그룹 이름과 설명은 ‘KWU-PRD-VPC-NGINX-PUB-SG-2C’로 입력하며
+ > VPC는 이전에 생성한 ‘KWU-PRD-VPC’로 지정
+ > 인바운드와 아웃바운드 규칙은 생성 이후 지정할 것이므로 [보안 그룹 생성] 클릭
+ > 인바운드 규칙 설정을 위해 [인바운드 규칙] - [인바운드 규칙 편집] 클릭
+ > [규칙 추가] 클릭 후 아래 표를 참고하여 인바운드 규칙 설정 후 [규칙 저장] 클릭
+
+- 이제 해당 보안그룹을 사용하는 EC2를 생성할 수 있다.  
+
+
+9-2. Web 전용 서버 생성 ( KWU-PRD-VPC-NGINX-PUB-2A )
+[EC2] - [인스턴스] - [인스턴스 시작] 클릭
+
+ > 이름은 KWU-PRD-VPC-NGINX-PUB-2A 로 입력
+ > AMI는 Ubuntu Server 22.04 LTS(HVM), SSD Volume Type으로 지정
+ > 인스턴스 유형은 기본 Default인 t3.micro 사용
+ > 키 페어는 아까 생성한 키로 지정
+ 
+[네트워크 설정]에서 편집 클릭 하여 아래 내용대로 수정
+ > [VPC]는 이전에 생성한 ‘`KWU-PRD-VPC`’로 지정
+ > [서브넷]은 ‘`KWU-PRD-VPC-NGINX-PUB-2A`’로 지정
+ > [퍼블릭 IP 자동 할당]은 **활성화**로 변경
+ > [방화벽(보안 그룹)]은 기존 보안 그룹 선택으로 변경하고 일반 보안 그룹을   ‘ KWU-PRD-VPC-NGINX-PUB-SG-2A ’로 지정
+
+[고급 네트워크 구성] 클릭
+ > [기본 IP]를 ‘10.250.1.240’으로 입력 후 [인스턴스 시작] 클릭
+ > 생성되면 아래와 같이 퍼블릭 IPv4 주소가 있는 인스턴스가 생성됨
+ 
+ 
+ 
+- WEB 서버 이중화를 위해 하나 더 설치한다!
+
+9-3. Web 전용 서버 생성 ( KWU-PRD-VPC-NGINX-PUB-2C )
+[EC2] - [인스턴스] - [인스턴스 시작] 클릭
+ > 이름은 KWU-PRD-VPC-NGINX-PUB-2C로 입력
+ > AMI는 Ubuntu Server 22.04 LTS(HVM), SSD Volume Type으로 지정
+ > 인스턴스 유형은 기본 Default인 t3.micro 사용
+ > 키 페어는 아까 생성한 키로 지정
+ 
+[네트워크 설정]에서 편집 클릭 하여 아래 내용대로 수정
+ > [VPC]는 이전에 생성한 ‘ KWU-PRD-VPC ’로 지정
+ > [서브넷]은 ‘`KWU-PRD-VPC-NGINX-PUB-2C`’로 지정
+ > [퍼블릭 IP 자동 할당]은 **활성화**로 변경
+ > [방화벽(보안 그룹)]은 기존 보안 그룹 선택으로 변경하고 일반 보안 그룹을 ‘ KWU-PRD-VPC-NGINX-PUB-SG-2C ’로 지정
+
+[고급 네트워크 구성] 클릭
+  > 이름은 KWU-PRD-VPC-NGINX-PUB-2C로 입력
+  > [기본 IP]를 ‘10.250.11.240’으로 입력 후 [인스턴스 시작] 클릭
+
+
+-------------------------------------------------------------------------------------------------------------
+

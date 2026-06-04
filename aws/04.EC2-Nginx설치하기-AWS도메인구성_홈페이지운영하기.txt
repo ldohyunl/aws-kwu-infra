@@ -1,0 +1,178 @@
+-------------------------------------------------------------------------------------------------------------
+- EC2 & EC2 간 통신 방법
+ > Bastion 서버(10.250.4.240)를 통해 nginx2a, nginx2c, tomcat2a. tomcat2c 연결
+ 
+
+- SFTP로 생성한 pem를 이동시키기
+ > 펨키를 사용하여 원격접속을 할 수 있음   
+   chmod 400 (자신의 펨키 이름)
+   ssh -i (자신의 펨키 이름) ubuntu@10.250.1.240
+
+- xshell 접속 확인
+ > Bastion-server 부터
+   >> 여기에서 ssh -i kwuaws.pem ubuntu@10.250.1.240
+   >> 여기에서 ssh -i kwuaws.pem ubuntu@10.250.11.240
+ > 추후 이름 바꾸고, 세션정리하고. 
+
+- icmp 를 보안정책에서 각각 열어주기 
+
+- 만들고 서로 ping 하면 원래는 서브넷 라우팅테이블 연결정보를 넣어놓았기 때문에 원래는 되어야 함. 
+ > 확인1. VPC에서 라우팅테이블 설정, 
+ > 확인2. 각각의 인스턴스 보안그룹에서 ICMP 허용 여부 확인. 
+ ==> so 아래가 모두 되어야 함. 
+        [ec2-user@ip-10-250-1-240 ~]$ ping 10.250.11.240
+        [ec2-user@ip-10-250-11-240 ~]$ ping 10.250.1.240
+
+-------------------------------------------------------------------------------------------------------------
+[Nginx 설치하기]
+- 요새 추새는 Nginx 웹서버도 Private 존으로 넣어서, 사설IP만 갖고, 공인IP를 갖지 않도록, 보안 때문에,
+- 접속은 앞단에 LB를 사용해서. 
+
+====================================================================================================
+<새로운 내용 시작>
+6. Nginx 설치   <== nginx2a, nginx2c 각각 해줘야 함. 
+📌 Nginx 설치 가능한 버전 확인
+ > apt info nginx 명령어로 name이 포함된 설치 가능한 패키지 목록을 조회한다.
+ 
+#1번작업 - 저장소 파일 생성 및 내용 넣기
+[root@ip-10-250-1-240]$ sudo vi /etc/apt/sources.list.d/nginx.list
+
+ > 아래 코드 내용 복사하여 넣기 (Bastion-server 경유해서 접속한 Nginx2A, Nginx2C에 동시에)
+ deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] https://nginx.org/packages/ubuntu jammy nginx
+ deb-src [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg]  https://nginx.org/packages/ubuntu jammy nginx
+ 
+#2번작업 - GPG 키 추가
+[root@ip-10-250-1-240]$ sudo curl -fsSL https://nginx.org/keys/nginx_signing.key | sudo gpg --dearmor -o /usr/share/keyrings/nginx-archive-keyring.gpg
+
+#3번작업 - 저장소 업데이트 및 설치** 
+
+[root@ip-10-250-1-240]$ sudo apt -y update
+[root@ip-10-250-1-240]$ sudo apt -y install nginx net-tools
+
+또는 $ sudo apt -y update && sudo apt -y install nginx net-tools
+
+#4번작업 - 설치 버전확인 및 시작**
+
+[root@ip-10-250-1-240]$ nginx -v
+nginx version: nginx/1.28.0
+
+[root@ip-10-250-11-240]$sudo systemctl start nginx
+[root@ip-10-250-11-240]$sudo systemctl status nginx
+
+root@ip-10-250-1-240:~# sudo ps -ef | grep nginx
+root        1695       1  0 00:47 ?        00:00:00 nginx: master process /usr/sbin/nginx -c /etc/nginx/nginx.conf
+nginx       1696    1695  0 00:47 ?        00:00:00 nginx: worker process
+nginx       1697    1695  0 00:47 ?        00:00:00 nginx: worker process
+root        1701    1042  0 00:47 pts/0    00:00:00 grep --color=auto nginx
+
+* sudo apt -y install net-tools 설치 후에 netstat 가능해짐. 
+
+root@ip-10-250-1-240:~# netstat -antup | grep :80
+tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      1695/nginx: master  
+root@ip-10-250-1-240:~# 
+
+* EC2 공인IP 확인하는 명령어
+ root@ip-10-250-1-240:~# ec2metadata    3.34.251.71
+ root@ip-10-250-11-240:~# ec2metadata    public-ipv4: 13.125.249.212
+ 또는
+ ec2metadata | grep public-ipv4
+====================================================================================================
+7. Nginx의 index.html   수정
+- KWU-PRD-VPC-NGINX-PUB-2A 에서 진행
+
+* $ sudo grep -r "root" /etc/nginx
+
+  : 아래 html 내용 복사하여 붙여넣고 :wq로 저장
+    sudo vi /usr/share/nginx/html/index.html
+	
+<html>
+<head> 
+<title>Amazon Nginx-2A Connected Success !!!</title> 
+<style>
+body {margin-top: 40px; background-color: red;}
+</style> 
+</head>
+<body>
+<div style=color:white;text-align:center>
+<h1>Amazon Nginx-2A Connected Success !!!</h1>
+<h2>Congratulations!</h2>
+<p><em>Your application is now running on a container in Amazon ECS.</em></p>
+</p> </div>
+</body>
+</html>
+
+  : $ sudo systemctl restart nginx
+
+
+- KWU-PRD-VPC-NGINX-PUB-2C 에서 진행
+
+* $ sudo grep -r "root" /etc/nginx
+
+  : 아래 html 내용 복사하여 붙여넣고 [ESC]+ :wq로 저장
+    sudo vi /usr/share/nginx/html/index.html
+
+- IP 확인
+  ec2metadata | grep public-ipv4
+  > 3.39.253.145 ->  http://3.39.253.145
+
+
+- KWU-PRD-VPC-NGINX-PUB-2C 에서 진행
+<html>
+<head> 
+<title>Amazon Nginx-2C Connected Success !!!</title> 
+<style>
+body {margin-top: 40px; background-color: blue;}
+</style> 
+</head>
+<body>
+<div style=color:white;text-align:center>
+<h1>Amazon Nginx-2C Connected Success !!!</h1>
+<h2>Congratulations!</h2>
+<p><em>Your application is now running on a container in Amazon ECS.</em></p>
+</p> </div>
+</body>
+</html>
+
+  : $ sudo systemctl restart nginx
+
+- 이제 공인 IP로 접속 시 아래처럼 나옴 (주어진 코드로 레드 / 블루)
+ http://3.34.251.71
+ http://13.125.249.212
+====================================================================================================
+8. Nginx EC2 와 Nginx EC2 간의 연결 
+서로 아래 명령어로 실행하면 변경한 html 정보를 확인할 수 있음 → 두 인스턴스는 80포트에 대한 인바운드 보안 정책 허용을 하였기 때문!
+
+  curl 10.250.11.240
+  Nginx-2A에서 실행
+  
+  curl 10.250.1.240
+  Nginx-2C에서 실행
+  
+  curl localhost:80
+
+그러나 Ping 테스트를 진행하면 서로 연결이 되지 않음!
+→ 두 인스턴스는 ICMP 연결에 대한 인바운드 보안 정책을 허용하지 않았기 때문! (안했다면..)
+
+ping 10.250.11.240
+Nginx-2A에서 실행
+
+ping 10.250.1.240
+Nginx-2C에서 실행
+
+AWS 콘솔로 돌아가서
+[EC2] - [보안그룹]에서 [인바운드 규칙]에서 [인바운드 규칙 편집] 클릭
+
+[규칙 추가] 클릭 후 아래 표대로 추가한 다음 [규칙 저장] 클릭
+모든 ICMP - IPv4  , Anywhere IPv4  , 0.0.0.0/0
+
+VEC-PRD-VPC-NGINX-PUB-SG-2A에서 한 것처럼 VEC-PRD-VPC-NGINX-PUB-SG-2C에서도 동일하게 진행 
+
+[EC2] - [보안그룹]에서 [인바운드 규칙]에서 [인바운드 규칙 편집] 클릭 
+
+[규칙 추가] 클릭 후 아래 표대로 추가한 다음 [규칙 저장] 클릭
+모든 ICMP - IPv4  , Anywhere IPv4  , 0.0.0.0/0
+
+돌아가서 다시 테스트 시 정상적으로 Ping 테스트 가능한 점을 확인할 수 있음
+
+<새로운 내용 끝끝>
+====================================================================================================
