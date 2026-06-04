@@ -72,14 +72,31 @@ echo ""
 terraform apply -auto-approve -input=false
 
 # ─────────────────────────────────────────
-# 완료
+# 완료 + 접속 링크 출력
 # ─────────────────────────────────────────
+BASTION_IP=$(terraform output -raw bastion_public_ip)
+NGINX_2A_IP=$(terraform output -raw nginx_2a_public_ip)
+NGINX_2C_IP=$(terraform output -raw nginx_2c_public_ip)
+CLB_URL=$(terraform output -raw clb_dns_name)
+HTTPS_URL=$(terraform output -raw domain_https)
+
 echo -e "\n${GREEN}"
 echo "========================================"
 echo "           구축 완료!"
 echo "========================================"
-echo -e "${NC}"
-echo "접속 정보는 위 outputs 를 확인하세요."
 echo ""
-echo "환경 삭제할 때는:"
-echo "  terraform destroy -auto-approve"
+echo "  🌐 접속 링크"
+echo "  ─────────────────────────────────────"
+echo "  HTTPS (도메인)  : ${HTTPS_URL}"
+echo "  CLB (로드밸런서): ${CLB_URL}"
+echo "  NGINX-2A (빨강) : http://${NGINX_2A_IP}"
+echo "  NGINX-2C (파랑) : http://${NGINX_2C_IP}"
+echo ""
+echo "  🔑 SSH 접속"
+echo "  ─────────────────────────────────────"
+echo "  BASTION : ssh -i kwuaws.pem ubuntu@${BASTION_IP}"
+echo ""
+echo "  🗑️  환경 삭제"
+echo "  ─────────────────────────────────────"
+echo "  bash cleanup.sh"
+echo -e "${NC}"
